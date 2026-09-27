@@ -22,6 +22,7 @@ test('native download lifecycle survives popup requests, rejects concurrent jobs
   assert.equal(result.ok, true);
   const id = result.state.job.id;
   assert.equal(posted.at(-1).url, 'https://www.youtube.com/watch?v=BaW_jenozKc');
+  assert.equal(posted.at(-1).speed, 'fast');
   const duplicate = await request({ type: 'download' });
   assert.equal(duplicate.ok, false);
   onMessage({ type: 'job', id: 'unknown-job', status: 'complete' });
@@ -33,8 +34,13 @@ test('native download lifecycle survives popup requests, rejects concurrent jobs
   assert.deepEqual(posted.at(-1), { type: 'cancel', id });
   onMessage({ type: 'job', id, status: 'complete', filename: 'test.mkv' });
   assert.equal(stored.state.history.length, 1);
-  result = await request({ type: 'download', url: 'https://youtu.be/BaW_jenozKc', mode: 'audio', quality: 'best' });
+  const invalid = await request({ type: 'download', url: 'https://youtu.be/BaW_jenozKc', mode: 'audio', quality: 'best', speed: '--exec=calc' });
+  assert.equal(invalid.ok, false);
+  assert.equal(stored.state.job.status, 'complete');
+  result = await request({ type: 'download', url: 'https://youtu.be/BaW_jenozKc', mode: 'audio', quality: 'best', speed: 'standard' });
   assert.equal(result.ok, true);
+  assert.equal(posted.at(-1).speed, 'standard');
+  assert.equal(result.state.job.speed, 'standard');
   chrome.runtime.lastError = { message: 'Host closed' };
   onDisconnect();
   assert.equal(stored.state.job.status, 'error');

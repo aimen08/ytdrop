@@ -66,7 +66,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (state.job && !TERMINAL.has(state.job.status)) throw new Error("Wait for the current download or cancel it.");
       const url = youtubeUrl(message.url);
       if (!["video", "audio"].includes(message.mode) || !["best", "2160", "1080", "720", "480"].includes(message.quality)) throw new Error("Invalid download options.");
-      state.job = { id: crypto.randomUUID(), url, mode: message.mode, quality: message.quality, status: "starting", title: "Getting video details…", percent: 0 };
+      const speed = message.speed === undefined ? "fast" : message.speed;
+      if (!["fast", "standard"].includes(speed)) throw new Error("Invalid download speed.");
+      state.job = { id: crypto.randomUUID(), url, mode: message.mode, quality: message.quality, speed, status: "starting", title: "Getting video details…", percent: 0 };
       port.postMessage({ type: "download", ...state.job });
       publish();
     } else if (message.type === "cancel" && state.job && !TERMINAL.has(state.job.status)) {

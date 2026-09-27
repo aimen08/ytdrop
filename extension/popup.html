@@ -13,6 +13,8 @@
         <label class="mode"><input type="radio" name="mode" value="audio"><span><b>♫ &nbsp; Audio</b><small>MP3 · high quality</small></span></label>
       </div></fieldset>
       <div class="quality-row"><label for="quality">Quality</label><select id="quality"><option value="1080">Up to 1080p</option><option value="720">Up to 720p</option><option value="480">Up to 480p</option><option value="2160">Up to 4K</option><option value="best">Best available</option></select></div>
+      <div class="quality-row"><label for="speed">Download speed</label><select id="speed" aria-describedby="speedHint"><option value="fast">Fast (recommended)</option><option value="standard">Standard</option></select></div>
+      <p id="speedHint" class="speed-note">Fast downloads supported videos in parallel.</p>
       <button id="download" class="primary" type="submit" disabled><span>Download video</span><span aria-hidden="true">↓</span></button>
       <p id="error" class="error" role="alert" hidden></p>
     </form>

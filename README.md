@@ -8,11 +8,12 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 - Choose video quality up to 480p, 720p, 1080p, 4K, or best available.
 - Extract high-quality MP3 audio with FFmpeg.
 - See download progress, speed, and estimated time remaining.
+- Use **Fast** mode (enabled by default) to fetch up to eight video fragments in parallel.
 - Cancel a download, view recent jobs, and open the download folder.
 - Continue downloading after closing the popup while Chrome stays open.
 - Keep files on your computer through a local helper, with no hosted backend.
 
-<img src="docs/popup-preview.png" alt="YT Drop popup showing audio selection and a cancelled sample download" width="410">
+<img src="docs/popup-preview.png" alt="YT Drop popup with Fast download mode selected" width="410">
 
 *UI preview with sample data.*
 
@@ -65,9 +66,28 @@ Chrome cannot execute yt-dlp itself. The extension's service worker connects to 
 - **One download at a time.** Cancelling terminates the yt-dlp process tree, including FFmpeg. Partial files are retained for resumption. Existing final files are not overwritten.
 - **Privacy:** the extension reads the current tab only when opened, requests no broad website access, and stores preferences locally. Recent job details are kept only for the browser session. yt-dlp contacts YouTube and its media servers; no media passes through a third-party service operated by this extension.
 
+## Download speed
+
+Version **1.1.0** enables **Fast** mode by default. It uses yt-dlp's [concurrent fragment downloads](https://github.com/yt-dlp/yt-dlp#download-options) to fetch up to **8 parts at once**, instead of one, for native DASH/HLS downloads. The popup remembers your choice. Choose **Standard** for one fragment at a time if Fast stalls on your connection.
+
+This keeps the same quality selection and output formats. Direct single-file HTTP downloads do not gain parallel connections from this option; extraction, merging, and MP3 conversion also take their own time. Actual improvement depends on the video's delivery format, your connection, and YouTube's servers. Choosing a lower video resolution also reduces the amount of data to download.
+
+A reproducible local HLS benchmark with 16 fragments and an artificial 150 ms delay per fragment measured:
+
+| Mode | Total time including startup and processing | Fragment transfer time | Peak concurrent requests |
+| --- | ---: | ---: | ---: |
+| Standard | 3.98 s | 2.67 s | 1 |
+| Fast | 1.49 s | 0.32 s | 8 |
+
+The resulting files had identical SHA-256 hashes. **This is a synthetic benchmark, not a promised YouTube speedup.** See [the benchmark script](tests/benchmark_fragments.py) to reproduce it with a Python environment containing yt-dlp and FFmpeg/ffprobe plus Node.js or Deno on PATH:
+
+```powershell
+python tests/benchmark_fragments.py --output-dir "$env:TEMP\ytdrop-benchmark"
+```
+
 ## Update / troubleshoot
 
-Close Chrome and rerun `install.ps1` to refresh the helper, extension files, and yt-dlp. Reopen Chrome; reload the unpacked extension if needed. Updates install from PyPI; yt-dlp is deliberately not pinned because YouTube changes regularly.
+Get the latest repository files (`git pull` or download a fresh ZIP), close Chrome, and rerun `install.ps1` to refresh the helper, extension files, and yt-dlp. Reopen Chrome; reload the unpacked extension if needed. Updates install from PyPI; yt-dlp is deliberately not pinned because YouTube changes regularly. When upgrading from 1.0.0, update both the extension and the helper for Fast mode to take effect.
 
 - **“Manifest file is missing or unreadable”:** you selected the repository root. Use **Load unpacked** again and choose its `extension` subfolder, or the installed extension folder printed by setup. That folder must contain `manifest.json` directly.
 - **Helper not found:** run setup, ensure you loaded the installed extension folder, and click Retry. If its ID differs from the ID printed by setup, restore the original manifest including its `key` field.

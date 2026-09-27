@@ -35,6 +35,27 @@ class FramingTests(unittest.TestCase):
 
 
 class ValidationTests(unittest.TestCase):
+    def test_speed_modes_keep_quality_and_audio_settings(self):
+        for mode in ('video', 'audio'):
+            for speed, count in [('standard', '1'), ('fast', '8')]:
+                command = host.build_command({**JOB, 'mode': mode, 'speed': speed}, CONFIG)
+                with self.subTest(mode=mode, speed=speed):
+                    self.assertEqual(command[command.index('--concurrent-fragments') + 1], count)
+                    if mode == 'video':
+                        self.assertIn('bv*[height<=1080]+ba/b[height<=1080]', command)
+                    else:
+                        self.assertEqual(command[command.index('--audio-quality') + 1], '0')
+                        self.assertIn('mp3', command)
+
+    def test_old_requests_default_to_fast(self):
+        command = host.build_command(JOB, CONFIG)
+        self.assertEqual(command[command.index('--concurrent-fragments') + 1], '8')
+
+    def test_rejects_arbitrary_speed_arguments(self):
+        for speed in ('turbo', '--exec=calc', 1000, None, {}):
+            with self.subTest(speed=speed), self.assertRaises(ValueError):
+                host.build_command({**JOB, 'speed': speed}, CONFIG)
+
     def test_video_links(self):
         for link in [JOB['url'], 'https://m.youtube.com/watch?v=BaW_jenozKc&list=x', 'https://youtube.com/shorts/BaW_jenozKc', 'https://music.youtube.com/watch?v=BaW_jenozKc', 'https://youtube.com/live/BaW_jenozKc']:
             self.assertEqual(host.youtube_url(link), 'https://www.youtube.com/watch?v=BaW_jenozKc')

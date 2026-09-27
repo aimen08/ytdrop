@@ -58,8 +58,8 @@ $("form").addEventListener("submit", async event => {
   event.preventDefault(); $("error").hidden = true;
   try {
     const url = youtubeUrl($("url").value);
-    await chrome.storage.local.set({ mode: mode(), quality: $("quality").value });
-    await send({ type: "download", url, mode: mode(), quality: $("quality").value });
+    await chrome.storage.local.set({ mode: mode(), quality: $("quality").value, speed: $("speed").value });
+    await send({ type: "download", url, mode: mode(), quality: $("quality").value, speed: $("speed").value });
   } catch (error) { showError(error); }
 });
 $("current").addEventListener("click", () => useCurrentTab());
@@ -69,9 +69,10 @@ for (const [id, type] of [["cancel", "cancel"], ["retry", "retry"], ["openFolder
 document.querySelectorAll('input[name="mode"]').forEach(input => input.addEventListener("change", updateMode));
 chrome.runtime.onMessage.addListener(message => { if (message.type === "state") render(message.state); });
 async function init() {
-  const saved = await chrome.storage.local.get(["mode", "quality"]);
+  const saved = await chrome.storage.local.get(["mode", "quality", "speed"]);
   if (["audio", "video"].includes(saved.mode)) document.querySelector(`input[value="${saved.mode}"]`).checked = true;
   if (["best", "2160", "1080", "720", "480"].includes(saved.quality)) $("quality").value = saved.quality;
+  if (["fast", "standard"].includes(saved.speed)) $("speed").value = saved.speed;
   updateMode();
   await useCurrentTab(true);
   await send({ type: "getState" });

@@ -14,6 +14,7 @@ MAX_MESSAGE = 65536
 WRITE_LOCK = threading.Lock()
 CONFIG_FILE = Path(__file__).with_name("config.json")
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+FRAGMENT_COUNTS = {"standard": 1, "fast": 8}
 
 
 def read_exact(stream, size):
@@ -76,17 +77,21 @@ def build_command(job, config):
     mode, quality = job.get("mode"), job.get("quality")
     if mode not in {"video", "audio"} or quality not in {"best", "2160", "1080", "720", "480"}:
         raise ValueError("Invalid download options")
+    speed = job.get("speed", "fast")
+    if not isinstance(speed, str) or speed not in FRAGMENT_COUNTS:
+        raise ValueError("Invalid download speed")
     folder = str(Path(config["download_dir"]).expanduser().resolve())
     command = [sys.executable, "-m", "yt_dlp", "--ignore-config", "--no-plugin-dirs",
                "--no-playlist", "--no-colors", "--newline", "--progress", "--progress-delta", "0.5",
                "--socket-timeout", "30", "--retries", "3", "--fragment-retries", "3",
+               "--concurrent-fragments", str(FRAGMENT_COUNTS[speed]),
                "--windows-filenames", "--trim-filenames", "180", "--no-overwrites", "--no-simulate",
                "--match-filters", "!is_live", "--ffmpeg-location", config["ffmpeg"],
                "--no-js-runtimes", "--js-runtimes", config["runtime"] + ":" + config["runtime_path"],
                "--paths", folder, "--output", "%(title).140B [%(id)s].%(ext)s",
                "--print", 'before_dl:YTDROP_META:%(.{title,id})j',
                "--print", 'after_move:YTDROP_FILE:%(filepath)j',
-               "--progress-template", 'download:YTDROP_PROGRESS:%(progress)j',
+               "--progress-template", 'download:YTDROP_PROGRESS:%(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,speed,eta})j',
                "--progress-template", 'postprocess:YTDROP_PROCESS:%(progress.status)j']
     if mode == "audio":
         command += ["--format", "bestaudio/best", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0"]
