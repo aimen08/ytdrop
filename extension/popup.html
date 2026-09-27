@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>YT Drop</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><div class="brand-mark" aria-hidden="true">↓</div><div><strong>YT Drop<span class="version">01</span></strong><p>Your videos. On your device.</p></div><span class="local">LOCAL</span></header>
+  <main>
+    <div class="connection"><span id="dot" class="dot"></span><span id="connection">Connecting to helper…</span><button id="retry" class="text-button" hidden>Retry</button></div>
+    <form id="form">
+      <div class="label-row"><label for="url">VIDEO LINK</label><button type="button" class="text-button" id="current">Use current tab ↗</button></div>
+      <input id="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required spellcheck="false" autocomplete="off">
+      <fieldset><legend>DOWNLOAD AS</legend><div class="modes">
+        <label class="mode"><input type="radio" name="mode" value="video" checked><span><b>▣ &nbsp; Video</b><small>Picture + sound</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="audio"><span><b>♫ &nbsp; Audio</b><small>MP3 · high quality</small></span></label>
+      </div></fieldset>
+      <div class="quality-row"><label for="quality">Quality</label><select id="quality"><option value="1080">Up to 1080p</option><option value="720">Up to 720p</option><option value="480">Up to 480p</option><option value="2160">Up to 4K</option><option value="best">Best available</option></select></div>
+      <button id="download" class="primary" type="submit" disabled><span>Download video</span><span aria-hidden="true">↓</span></button>
+      <p id="error" class="error" role="alert" hidden></p>
+    </form>
+    <section id="job" class="job" hidden aria-live="polite"><div class="job-top"><span id="jobStatus">PREPARING</span><button id="cancel" class="text-button">Cancel</button></div><h2 id="title"></h2><progress id="progress" max="100" value="0"></progress><div class="progress-meta"><span id="detail"></span><span id="percent"></span></div><p id="jobError" class="error" hidden></p><p id="filename" class="filename" hidden></p></section>
+    <section id="historySection" hidden><div class="label-row history-label"><span>RECENT DOWNLOADS</span><span>THIS SESSION</span></div><ul id="history"></ul></section>
+    <div class="destination"><span aria-hidden="true">▱</span><div><span>Saved on this computer</span><small id="folder">Downloads / YT Drop</small></div><button id="openFolder" class="text-button" disabled>Open ↗</button></div>
+  </main>
+  <footer><span>POWERED BY <b>yt-dlp</b></span><span>No uploads. No cloud.</span></footer>
+  <script type="module" src="popup.js"></script>
+</body></html>
