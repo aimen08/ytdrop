@@ -33,7 +33,7 @@ for(const [label,action] of Object.entries(actions)){const b=document.createElem
 panel.append(log);document.body.append(panel);
 globalThis.chrome={
   storage:{session:storage(sessionStorage),local:storage(localStorage)},tabs:{query:async()=>[{...tab}]},action:{setBadgeText(){},setBadgeBackgroundColor(){}},
-  runtime:{id:'preview-extension',getManifest:()=>({version:'1.3.0'}),lastError:null,onMessage:{addListener:fn=>listeners.push(fn)},
+  runtime:{id:'preview-extension',getManifest:()=>({version:'1.4.0'}),lastError:null,onMessage:{addListener:fn=>listeners.push(fn)},
     sendMessage:message=>new Promise(resolve=>{
       if(message.type==='state'){listeners.forEach(fn=>fn(structuredClone(message),{id:'preview-extension'},()=>{}));resolve();return;}
       let pending=false;

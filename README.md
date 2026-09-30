@@ -16,18 +16,24 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 - Continue downloading after closing the popup while Chrome stays open.
 - Keep files on your computer through a local helper, with no hosted backend.
 
-<img src="docs/popup-preview.jpg" alt="YT Drop popup accepting multiple video links with shared format and quality choices" width="400">
-<img src="docs/queue-preview.jpg" alt="One active download with two waiting items, pause, skip, and remove controls" width="400">
+<img src="docs/popup-preview.jpg" alt="Compact charcoal and violet YT Drop popup with multiple video links and inline format and quality controls" width="360">
+<img src="docs/queue-preview.jpg" alt="Compact active download with two waiting items, pause, skip, and remove controls" width="360">
 
 *UI preview with sample data.*
 
+## New in 1.4.0: a smaller, clearer popup
+
+The charcoal and violet interface is now 360 pixels wide. Video/MP3 and quality controls share one row; extra settings live under **Options**. Progress, speed, ETA, and cancellation fit in a compact card. **Up next** puts the waiting count, **Pause / Resume**, and **Clear** together, with a scrollable list for longer queues. The download-folder shortcut stays visible below the active download.
+
+The default form measures about 362 pixels tall, and a transfer with two waiting items measures 490 pixels tall (previously about 598). Expanded options, history, or detailed errors may scroll. Keyboard focus indicators, descriptive accessible labels, and reduced-motion support are preserved. This update changes no download settings, extension permissions, or native-helper behavior.
+
 ## New in 1.3.0: download queue
 
-Paste one video link per line, choose the settings for that batch, and click **Queue downloads**. The first starts immediately; the rest wait in order. While it runs, use **Add more downloads** to add another batch with its own settings. Duplicate links with the same output and transfer settings are skipped while active or waiting.
+Paste one video link per line, choose the settings for that batch, and click **Queue downloads**. The first starts immediately; the rest wait in order. While it runs, use **Add links** to add another batch with its own settings. Duplicate links with the same output and transfer settings are skipped while active or waiting.
 
-- **Pause queue** lets the current item finish and holds the waiting items. **Resume queue** continues in order; it does not restart the active transfer.
-- **Skip current download** cancels the active item and starts the next after it stops. When the queue is paused or empty, this button reads **Cancel download**.
-- Remove a waiting item with its **×** button, or **Clear waiting** to remove all waiting items without cancelling the active download.
+- **Pause** lets the current item finish and holds the waiting items. **Resume** continues in order; it does not restart the active transfer.
+- **Skip current** cancels the active item and starts the next after it stops. When the queue is paused or empty, this button reads **Cancel**.
+- Remove a waiting item with its **×** button, or **Clear** to remove all waiting items without cancelling the active download.
 - Failed videos appear in history and the next item runs. If the helper disconnects, the remaining queue pauses. Reconnect, then resume; retry the interrupted item separately if needed.
 - The queue stays available when the popup closes, throughout the current Chrome session. A service-worker interruption preserves waiting items but pauses them for review. **Quitting Chrome clears the session queue**, so keep Chrome running until the queue finishes.
 

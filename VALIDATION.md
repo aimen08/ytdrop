@@ -1,5 +1,14 @@
 # Validation — 27 September 2026
 
+## Version 1.4.0 compact UI — 30 September 2026
+
+- All 34 JavaScript and 17 Python tests passed (51 total). Download coordination and the native helper are unchanged.
+- The actual popup and service worker were browser-tested with the simulated Chrome/native-helper harness: multiple links, Video/MP3 selection, expanded options, active progress, adding links during a transfer, pause/resume, finishing, completion, failures with error details, clearing waiting items, history, and missing-helper/no-video feedback.
+- The form measures 360 × 362 CSS pixels. An active transfer with two waiting items measures 360 × 490, including the folder shortcut. The matching previous queue layout was approximately 400 × 598. Neither state has horizontal overflow.
+- Expanded error details and missing-helper feedback remain readable within the popup width. Longer content can scroll. No browser console errors or warnings appeared during the checks.
+- Updated the five changed files in the installed extension after making a backup; all copied hashes match. The manifest key and permissions match the prior installation. Reload YT Drop after active downloads finish to activate the new UI.
+- Documentation screenshots show sample data, not live downloads. No new live YouTube download or actual Chrome extension reload is claimed for this visual update.
+
 ## Version 1.3.0 queue update — 30 September 2026
 
 - 34 JavaScript tests and 17 Python tests passed (51 total).

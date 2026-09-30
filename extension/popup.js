@@ -42,7 +42,7 @@ function updateDownloadButton() {
 function updateSettings(persist=false) {
   const o=settings(), audio=o.mode==='audio';
   $('quality').hidden=audio;$('quality').disabled=audio;$('audioQuality').hidden=!audio;
-  $('qualityLabel').textContent=audio ? 'Audio quality' : 'Video quality';
+  $('qualityLabel').textContent=audio ? 'Audio quality' : 'Quality';
   $('qualityHint').textContent=audio ? 'Extracts the best audio, then converts it to MP3.' : 'Uses the best quality within your limit.';
   $('speedSummary').textContent=o.speed==='fast' ? 'Fast mode' : 'Standard mode';
   $('speedHint').textContent=o.speed==='fast' ? 'Fetches up to 8 supported fragments at once. Try Standard if transfers stall.' : 'Fetches one fragment at a time. Useful on connections where Fast mode stalls.';
@@ -86,7 +86,9 @@ function renderQueue() {
   $('queueCount').textContent=`${queue.length} waiting`;
   $('queueSummary').textContent=state.queuePaused ? running ? 'Paused after this download. Waiting items will stay queued.' : 'Queue paused. Resume when you’re ready.' : running ? queue.length ? 'One at a time. The next item starts when this one finishes.' : 'Nothing waiting. Add more while this download runs.' : 'Waiting for the local helper to connect.';
   if(state.queueError)$('queueSummary').textContent=state.queueError;
-  $('pauseQueue').textContent=state.queuePaused ? 'Resume queue' : 'Pause queue';
+  $('pauseQueue').textContent=state.queuePaused ? 'Resume' : 'Pause';
+  $('pauseQueue').setAttribute('aria-label',state.queuePaused ? 'Resume queue' : 'Pause queue');
+  $('pauseQueue').title=state.queuePaused ? 'Resume waiting downloads' : 'Pause after the current download';
   $('pauseQueue').disabled=queueBusy || (state.queuePaused && !state.helper.ready);
   $('clearQueue').disabled=queueBusy || !queue.length;
   const key=JSON.stringify([queue,queueBusy]);
@@ -108,7 +110,7 @@ function render(next) {
   $('addMore').hidden=!isActive(job) || composing;
   $('backToJob').hidden=!visible || !composing;
   document.body.classList.toggle('queue-running',isActive(job) && !composing);
-  $('composerTitle').textContent=visible ? 'Add to your queue' : 'Download from YouTube';
+  $('composerTitle').textContent=visible ? 'Add to your queue' : 'New download';
   if(visible){
     const view=describeJob(job);
     if(job.id!==lastJobId){$('jobErrorDetails').open=false;$('queueNotice').hidden=true;cancelling=false;lastJobId=job.id;}
@@ -129,7 +131,10 @@ function render(next) {
     $('filename').hidden=job.status!=='complete' || !view.filename;$('filename').textContent=view.filename;$('filename').title=job.filename || '';
     $('jobErrorDetails').hidden=!job.error;$('jobError').textContent=job.error || '';
     $('activeActions').hidden=!view.active;$('finishedActions').hidden=view.active;
-    $('cancel').disabled=cancelling;$('cancel').textContent=cancelling ? 'Stopping…' : state.queue?.length && !state.queuePaused ? 'Skip current download' : 'Cancel download';
+    $('cancel').disabled=cancelling;
+    const skip=state.queue?.length && !state.queuePaused;
+    $('cancel').textContent=cancelling ? 'Stopping…' : skip ? 'Skip current' : 'Cancel';
+    $('cancel').setAttribute('aria-label',cancelling ? 'Stopping download' : skip ? 'Skip current download' : 'Cancel download');
     $('jobPrimaryLabel').textContent=job.status==='complete' ? 'Open download folder' : state.queuePaused ? 'Queue this download again' : 'Try download again';
     $('jobPrimaryIcon').setAttribute('href',job.status==='complete' ? '#i-folder' : '#i-retry');$('jobPrimary').disabled=!state.helper.ready || submitting;
     $('another').textContent=job.status==='complete' ? 'Download another video →' : 'Edit link or options →';
