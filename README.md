@@ -7,15 +7,23 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 - Download the current YouTube video or paste a video / Shorts link.
 - Choose video quality up to 480p, 720p, 1080p, 4K, or best available.
 - Extract high-quality MP3 audio with FFmpeg.
-- See download progress, speed, and estimated time remaining.
+- See dedicated preparation, transfer, finishing, and completion screens with speed and readable time remaining.
 - Use **Fast** mode (enabled by default) to fetch up to eight video fragments in parallel.
-- Cancel a download, view recent jobs, and open the download folder.
+- Cancel a download, retry with its original settings, reuse recent links, and open the download folder.
+- Remember format, quality, and transfer preferences immediately; keep unfinished links for the browser session.
+- Get inline link validation and a built-in connection/setup guide.
 - Continue downloading after closing the popup while Chrome stays open.
 - Keep files on your computer through a local helper, with no hosted backend.
 
-<img src="docs/popup-preview.png" alt="YT Drop popup with Fast download mode selected" width="410">
+<img src="docs/popup-preview.jpg" alt="YT Drop 1.2 popup showing video and audio choices, quality, download button, history, and folder shortcut" width="400">
 
 *UI preview with sample data.*
+
+## New in 1.2.0
+
+A redesigned compact popup keeps the main download controls visible, with Video/Audio cards and optional advanced settings. Progress replaces the form while a download runs. Completed jobs show the saved filename; interrupted jobs offer retry, editable options, and expandable error details. Audio mode only shows relevant audio information.
+
+Retry now remembers Fast/Standard separately from the measured transfer speed. Downloads interrupted by a helper disconnect also appear in recent history. This update adds no extension permissions and does not change the native helper's download formats or concurrency.
 
 ## Install on Windows
 
@@ -61,10 +69,10 @@ Chrome cannot execute yt-dlp itself. The extension's service worker connects to 
 
 - **Video:** maximum resolution selection (480p / 720p / 1080p / 4K / best). Separate streams are merged into MKV to preserve their original codecs. A combined stream may retain its original container. A resolution cap is a maximum, not a guarantee that the source offers it.
 - **Audio:** best available audio converted to MP3 using FFmpeg.
-- **Progress:** shown for the current stream; it can restart when yt-dlp moves from video to audio. Merging and conversion appear as “Finishing file.”
+- **Progress:** shown for the current stream; it can restart when yt-dlp moves from video to audio. Merging and conversion appear as “Finishing your file,” without implying that 100% transfer means the final file is already saved.
 - **Background downloads:** continue with the popup closed. Keep Chrome running. Closing Chrome, disabling the extension, or reloading it interrupts the helper. Starting the same download can resume remaining partial files.
 - **One download at a time.** Cancelling terminates the yt-dlp process tree, including FFmpeg. Partial files are retained for resumption. Existing final files are not overwritten.
-- **Privacy:** the extension reads the current tab only when opened, requests no broad website access, and stores preferences locally. Recent job details are kept only for the browser session. yt-dlp contacts YouTube and its media servers; no media passes through a third-party service operated by this extension.
+- **Privacy:** the extension reads the active tab when opened or when you click **Use this tab**, requests no broad website access, and stores preferences locally. Recent job details and unfinished links are kept only for the browser session. yt-dlp contacts YouTube and its media servers; no media passes through a third-party service operated by this extension.
 
 ## Download speed
 
@@ -94,7 +102,7 @@ Get the latest repository files (`git pull` or download a fresh ZIP), close Chro
 - **Missing FFmpeg/runtime:** rerun setup after installing the dependency. Setup records absolute executable paths so Chrome does not depend on a refreshed PATH.
 - **Sign-in / bot verification / regional restrictions:** this build does not import browser cookies, authenticate, or bypass access restrictions. Some videos will be unavailable. The actual yt-dlp error appears in the popup.
 - **Live broadcasts, playlists, channels:** unsupported. A live URL works once it is an archived individual video.
-- **Download location:** use the Open button in the popup. Downloads made by the helper do not appear in Chrome's built-in download manager.
+- **Download location:** use the folder arrow at the bottom of the popup, or **Open download folder** after completion. Downloads made by the helper do not appear in Chrome's built-in download manager.
 - **Uninstall:** run `uninstall.ps1`, then remove the extension in Chrome. Downloaded files are preserved. The script prints where the remaining helper files can be removed.
 
 Use with videos you own or have permission to download. This is an independent project, unaffiliated with YouTube or yt-dlp.
@@ -122,6 +130,8 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 The Python tests exercise native message framing, strict URL validation, command construction, progress parsing, failure handling, and cancellation. JavaScript tests exercise URL validation and service-worker behavior with a Chrome API mock. Live downloads depend on YouTube availability and are not guaranteed by the deterministic tests.
+
+To inspect the interface without installing the helper, run `npm run preview` (or `node tests/preview-server.mjs`) and open `http://127.0.0.1:4178/popup.html`. The local preview serves the real popup files with a mock Chrome API and explicit sample-state controls. It performs no downloads and is not included in the extension's runtime.
 
 See [VALIDATION.md](VALIDATION.md) for the tested behavior and remaining integration checks. The installer currently supports **Windows**; macOS and Linux installation are not included.
 

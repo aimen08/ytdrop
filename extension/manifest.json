@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Drop — yt-dlp downloader",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Download a YouTube video or audio with your local yt-dlp helper.",
   "minimum_chrome_version": "105",
   "permissions": [

@@ -1,5 +1,16 @@
 # Validation — 27 September 2026
 
+## Version 1.2.0 UI update — 30 September 2026
+
+- 21 JavaScript tests passed, including canonical video/title matching, invalid links, progress bounds, ETA formatting, retry settings after progress updates, and interrupted-job history.
+- All 15 existing Python tests passed. The native helper is unchanged.
+- Browser-tested the shipped popup files through the local mock-Chrome preview: Video/Audio controls, immediate preference persistence, manual draft persistence, inline validation, preparation, progress, indeterminate conversion, completion, folder commands, cancellation, error details, retry, history reuse, empty next-download state, unavailable current tabs, missing-helper setup, and reconnection.
+- Ready state with recent history measures 400 × 581 CSS pixels; its download button and folder shortcut fit within Chrome's 600-pixel popup height. Expanded options/history and setup errors may scroll. The saved screenshot uses sample data.
+- No browser console errors or warnings appeared during the preview checks. Setup guide links and text were inspected.
+- The Windows desktop-control tool stopped the actual-Chrome check because it could not confidently determine the current URL. No actual Chrome reload or new end-to-end YouTube download is claimed for 1.2.0; reload the installed extension to activate the update.
+
+## Original integration checks
+
 - 15 JavaScript tests passed: URL handling and service-worker download lifecycle.
 - 15 Python tests passed: message framing, URL validation, fixed command arguments, speed modes, backwards-compatible defaults, progress, failures, concurrency, and cancellation.
 - Actual yt-dlp 2026.8.19 downloaded a generated video fixture and converted an audio fixture to MP3 using FFmpeg 8.1.1.

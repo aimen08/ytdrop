@@ -41,8 +41,13 @@ test('native download lifecycle survives popup requests, rejects concurrent jobs
   assert.equal(result.ok, true);
   assert.equal(posted.at(-1).speed, 'standard');
   assert.equal(result.state.job.speed, 'standard');
+  onMessage({ type: 'job', id: result.state.job.id, status: 'downloading', percent: 12, speed: '4.8 MB/s' });
+  result = await request({ type: 'getState' });
+  assert.equal(result.state.job.speed, '4.8 MB/s');
+  assert.equal(result.state.job.downloadSpeed, 'standard');
   chrome.runtime.lastError = { message: 'Host closed' };
   onDisconnect();
   assert.equal(stored.state.job.status, 'error');
   assert.equal(stored.state.helper.ready, false);
+  assert.equal(stored.state.history[0].downloadSpeed, 'standard');
 });

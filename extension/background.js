@@ -9,8 +9,13 @@ const loaded = chrome.storage.session.get("state").then(saved => {
   state.helper = { ready: false, message: "Connecting to local helper…" };
   if (state.job && !TERMINAL.has(state.job.status)) {
     state.job = { ...state.job, status: "error", error: "Browser connection ended. Start again to resume partial files." };
+    recordJob();
   }
 });
+
+function recordJob() {
+  state.history = [state.job, ...state.history.filter(j => j.id !== state.job.id)].slice(0, 10);
+}
 
 function publish() {
   chrome.storage.session.set({ state });
@@ -31,7 +36,7 @@ function connect() {
       else if (message.type === "job" && message.id === state.job?.id) {
         state.job = { ...state.job, ...message };
         if (TERMINAL.has(message.status)) {
-          state.history = [state.job, ...state.history.filter(j => j.id !== message.id)].slice(0, 10);
+          recordJob();
         }
       }
       publish();
@@ -43,6 +48,7 @@ function connect() {
       state.helper = { ready: false, message: `${reason} Run install.ps1, then retry.` };
       if (state.job && !TERMINAL.has(state.job.status)) {
         state.job = { ...state.job, status: "error", error: "Helper connection lost. Start again to resume partial files." };
+        recordJob();
       }
       publish();
     });
@@ -68,7 +74,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (!["video", "audio"].includes(message.mode) || !["best", "2160", "1080", "720", "480"].includes(message.quality)) throw new Error("Invalid download options.");
       const speed = message.speed === undefined ? "fast" : message.speed;
       if (!["fast", "standard"].includes(speed)) throw new Error("Invalid download speed.");
-      state.job = { id: crypto.randomUUID(), url, mode: message.mode, quality: message.quality, speed, status: "starting", title: "Getting video details…", percent: 0 };
+      state.job = { id: crypto.randomUUID(), url, mode: message.mode, quality: message.quality, speed, downloadSpeed: speed, status: "starting", title: "Getting video details…", percent: 0 };
       port.postMessage({ type: "download", ...state.job });
       publish();
     } else if (message.type === "cancel" && state.job && !TERMINAL.has(state.job.status)) {
