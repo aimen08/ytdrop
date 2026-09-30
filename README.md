@@ -5,6 +5,7 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 ## Features
 
 - Download the current YouTube video or paste a video / Shorts link.
+- Paste multiple links and queue up to 50 waiting downloads. YT Drop downloads one item at a time, in order.
 - Choose video quality up to 480p, 720p, 1080p, 4K, or best available.
 - Extract high-quality MP3 audio with FFmpeg.
 - See dedicated preparation, transfer, finishing, and completion screens with speed and readable time remaining.
@@ -15,9 +16,22 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 - Continue downloading after closing the popup while Chrome stays open.
 - Keep files on your computer through a local helper, with no hosted backend.
 
-<img src="docs/popup-preview.jpg" alt="YT Drop 1.2 popup showing video and audio choices, quality, download button, history, and folder shortcut" width="400">
+<img src="docs/popup-preview.jpg" alt="YT Drop popup accepting multiple video links with shared format and quality choices" width="400">
+<img src="docs/queue-preview.jpg" alt="One active download with two waiting items, pause, skip, and remove controls" width="400">
 
 *UI preview with sample data.*
+
+## New in 1.3.0: download queue
+
+Paste one video link per line, choose the settings for that batch, and click **Queue downloads**. The first starts immediately; the rest wait in order. While it runs, use **Add more downloads** to add another batch with its own settings. Duplicate links with the same output and transfer settings are skipped while active or waiting.
+
+- **Pause queue** lets the current item finish and holds the waiting items. **Resume queue** continues in order; it does not restart the active transfer.
+- **Skip current download** cancels the active item and starts the next after it stops. When the queue is paused or empty, this button reads **Cancel download**.
+- Remove a waiting item with its **×** button, or **Clear waiting** to remove all waiting items without cancelling the active download.
+- Failed videos appear in history and the next item runs. If the helper disconnects, the remaining queue pauses. Reconnect, then resume; retry the interrupted item separately if needed.
+- The queue stays available when the popup closes, throughout the current Chrome session. A service-worker interruption preserves waiting items but pauses them for review. **Quitting Chrome clears the session queue**, so keep Chrome running until the queue finishes.
+
+Update both the extension and native helper for this version. The helper now releases each completed job before signalling the extension to start the next.
 
 ## New in 1.2.0
 
@@ -71,8 +85,8 @@ Chrome cannot execute yt-dlp itself. The extension's service worker connects to 
 - **Audio:** best available audio converted to MP3 using FFmpeg.
 - **Progress:** shown for the current stream; it can restart when yt-dlp moves from video to audio. Merging and conversion appear as “Finishing your file,” without implying that 100% transfer means the final file is already saved.
 - **Background downloads:** continue with the popup closed. Keep Chrome running. Closing Chrome, disabling the extension, or reloading it interrupts the helper. Starting the same download can resume remaining partial files.
-- **One download at a time.** Cancelling terminates the yt-dlp process tree, including FFmpeg. Partial files are retained for resumption. Existing final files are not overwritten.
-- **Privacy:** the extension reads the active tab when opened or when you click **Use this tab**, requests no broad website access, and stores preferences locally. Recent job details and unfinished links are kept only for the browser session. yt-dlp contacts YouTube and its media servers; no media passes through a third-party service operated by this extension.
+- **One download at a time, with up to 50 waiting.** Video transfer, audio transfer, and final conversion/merging all finish before the next item starts. Cancelling terminates the yt-dlp process tree, including FFmpeg. Partial files are retained for resumption. Existing final files are not overwritten.
+- **Privacy:** the extension reads the active tab when opened or when you click **Use this tab**, requests no broad website access, and stores preferences locally. Queued links, recent job details, and unfinished links are kept only for the browser session. yt-dlp contacts YouTube and its media servers; no media passes through a third-party service operated by this extension.
 
 ## Download speed
 
@@ -131,7 +145,7 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 
 The Python tests exercise native message framing, strict URL validation, command construction, progress parsing, failure handling, and cancellation. JavaScript tests exercise URL validation and service-worker behavior with a Chrome API mock. Live downloads depend on YouTube availability and are not guaranteed by the deterministic tests.
 
-To inspect the interface without installing the helper, run `npm run preview` (or `node tests/preview-server.mjs`) and open `http://127.0.0.1:4178/popup.html`. The local preview serves the real popup files with a mock Chrome API and explicit sample-state controls. It performs no downloads and is not included in the extension's runtime.
+To inspect the interface without installing the helper, run `npm run preview` (or `node tests/preview-server.mjs`) and open `http://127.0.0.1:4178/popup.html`. The local preview runs the real popup and service worker with a mock Chrome API and simulated native helper. Its controls simulate progress, completion, failure, and disconnection. It performs no downloads and is not included in the extension's runtime. Reloading this development page also reloads the simulated worker, so active work is marked interrupted and waiting items pause.
 
 See [VALIDATION.md](VALIDATION.md) for the tested behavior and remaining integration checks. The installer currently supports **Windows**; macOS and Linux installation are not included.
 

@@ -1,24 +1,30 @@
 import { sourceInfo, downloadOptions, optionLabel, etaLabel, describeJob, isActive } from './presentation.js';
+import { parseLinks } from './queue.js';
 
 const $ = id => document.getElementById(id);
-let state = {helper:{ready:false,message:'Connecting to local helper…'},job:null,history:[]};
+let state = {helper:{ready:false,message:'Connecting to local helper…'},job:null,history:[],queue:[],queuePaused:false};
 let currentTab = {}, dismissedJobId = '', helperExpanded = null, submitting = false, cancelling = false, initialized = false;
 let historyKey = '', lastJobId = '', draftOrigin = 'tab';
+let composing = false, queueBusy = false, queueRenderKey = '';
 const settings = () => ({mode:document.querySelector('input[name="mode"]:checked').value,quality:$('quality').value,speed:$('speed').value});
 
 function showError(error) {$('error').textContent=error.message || String(error);$('error').hidden=false;}
 function clearError() {$('error').hidden=true;}
 async function send(message) {
   const result=await chrome.runtime.sendMessage(message);
+  if(result?.state)render(result.state);
   if(!result?.ok)throw new Error(result?.error || 'Couldn’t reach the extension. Close and reopen this panel.');
-  if(result.state)render(result.state);
   return result;
 }
 function persistDraft() {
   return chrome.storage.session.set({draftUrl:$('url').value,draftOrigin}).catch(showError);
 }
 function updateSource(showInvalid=false) {
-  const source=sourceInfo($('url').value,currentTab);
+  let source;
+  try {
+    const urls=parseLinks($('url').value);
+    source=urls.length===1 ? {...sourceInfo(urls[0],currentTab),urls} : {valid:true,urls,title:`${urls.length} links ready`,meta:'The settings below apply to all these links.'};
+  } catch(error) {source={valid:false,empty:!$('url').value.trim(),error:error.message};}
   $('clearUrl').hidden=!$('url').value;$('sourcePreview').hidden=!source.valid;$('urlHint').hidden=source.valid;
   if(source.valid){$('sourceTitle').textContent=source.title;$('sourceTitle').title=source.title;$('sourceMeta').textContent=source.meta;}
   $('urlError').hidden=!(showInvalid && !source.valid);
@@ -26,8 +32,10 @@ function updateSource(showInvalid=false) {
   $('url').setAttribute('aria-invalid',String(showInvalid && !source.valid));updateDownloadButton();return source;
 }
 function updateDownloadButton() {
-  $('download').disabled=!initialized || !state.helper.ready || isActive(state.job) || submitting;
-  $('downloadLabel').textContent=submitting ? 'Starting download…' : !state.helper.ready && initialized ? 'Connect helper to download' : `Download ${settings().mode === 'audio' ? 'MP3 audio' : 'video'}`;
+  let count=1;try{count=parseLinks($('url').value).length;}catch{}
+  const waiting=isActive(state.job) || state.queue?.length || state.queuePaused;
+  $('download').disabled=!initialized || !state.helper.ready || submitting;
+  $('downloadLabel').textContent=submitting ? 'Adding downloads…' : !state.helper.ready && initialized ? 'Connect helper to download' : waiting ? `Add to queue${count>1 ? ` (${count})` : ''}` : count>1 ? `Queue ${count} downloads` : `Download ${settings().mode === 'audio' ? 'MP3 audio' : 'video'}`;
   $('downloadHint').textContent=!state.helper.ready && initialized ? 'Use the connection badge above for setup and help.' : 'Saved locally. No account needed.';
   $('downloadHint').hidden=state.helper.ready;
 }
@@ -58,7 +66,7 @@ function renderHelper() {
 }
 function renderHistory(jobVisible) {
   const history=(state.history || []).filter(j=>!jobVisible || j.id!==state.job?.id).slice(0,5);
-  const key=JSON.stringify([history,isActive(state.job)]);
+  const key=JSON.stringify(history);
   $('historySection').hidden=!history.length;$('historyCount').textContent=String(history.length);
   if(key===historyKey)return;historyKey=key;
   $('history').replaceChildren(...history.map(item=>{
@@ -68,21 +76,47 @@ function renderHistory(jobVisible) {
     row.querySelector('.history-icon use').setAttribute('href',item.mode==='audio' ? '#i-audio' : '#i-video');
     row.querySelector('strong').textContent=title;row.querySelector('small').textContent=optionLabel(item);
     row.querySelector('.history-state').textContent=({complete:'Saved',error:'Failed',cancelled:'Cancelled'})[item.status] || item.status;
-    button.addEventListener('click',()=>{if(!isActive(state.job))showComposer(item);});button.disabled=isActive(state.job);return row;
+    button.addEventListener('click',()=>showComposer(item));return row;
+  }));
+}
+function renderQueue() {
+  const queue=state.queue || [],running=isActive(state.job);
+  $('queuePanel').hidden=!queue.length && !running && !state.queuePaused;
+  $('queuePanel').dataset.paused=String(Boolean(state.queuePaused || state.queueError));
+  $('queueCount').textContent=`${queue.length} waiting`;
+  $('queueSummary').textContent=state.queuePaused ? running ? 'Paused after this download. Waiting items will stay queued.' : 'Queue paused. Resume when you’re ready.' : running ? queue.length ? 'One at a time. The next item starts when this one finishes.' : 'Nothing waiting. Add more while this download runs.' : 'Waiting for the local helper to connect.';
+  if(state.queueError)$('queueSummary').textContent=state.queueError;
+  $('pauseQueue').textContent=state.queuePaused ? 'Resume queue' : 'Pause queue';
+  $('pauseQueue').disabled=queueBusy || (state.queuePaused && !state.helper.ready);
+  $('clearQueue').disabled=queueBusy || !queue.length;
+  const key=JSON.stringify([queue,queueBusy]);
+  if(key===queueRenderKey)return;queueRenderKey=key;
+  $('queueList').replaceChildren(...queue.map((item,index)=>{
+    const row=$('queueRow').content.firstElementChild.cloneNode(true);
+    const title=item.title && item.title!=='YouTube video' ? item.title : `YouTube · ${new URL(item.url).searchParams.get('v')}`;
+    row.querySelector('.queue-position').textContent=String(index+1);
+    row.querySelector('strong').textContent=title;row.querySelector('strong').title=item.url;
+    row.querySelector('small').textContent=`${optionLabel(item)} · ${item.downloadSpeed==='standard' ? 'Standard' : 'Fast'}`;
+    const remove=row.querySelector('button');remove.setAttribute('aria-label',`Remove waiting download ${index+1}: ${title}`);remove.disabled=queueBusy;
+    remove.addEventListener('click',()=>queueAction({type:'removeQueued',id:item.id}));return row;
   }));
 }
 function render(next) {
   state=next;renderHelper();updateDownloadButton();
   const job=state.job,visible=Boolean(job && (isActive(job) || job.id!==dismissedJobId));
-  $('job').hidden=!visible;$('form').hidden=visible;
+  $('job').hidden=!visible || composing;$('form').hidden=visible && !composing;
+  $('addMore').hidden=!isActive(job) || composing;
+  $('backToJob').hidden=!visible || !composing;
+  document.body.classList.toggle('queue-running',isActive(job) && !composing);
+  $('composerTitle').textContent=visible ? 'Add to your queue' : 'Download from YouTube';
   if(visible){
     const view=describeJob(job);
-    if(job.id!==lastJobId){$('jobErrorDetails').open=false;cancelling=false;lastJobId=job.id;}
-    if(!view.active)cancelling=false;
+    if(job.id!==lastJobId){$('jobErrorDetails').open=false;$('queueNotice').hidden=true;cancelling=false;lastJobId=job.id;}
+    if(!view.active){cancelling=false;$('queueNotice').hidden=true;}
     $('job').dataset.status=job.status;$('jobEyebrow').textContent=view.eyebrow;$('jobStatus').textContent=cancelling ? 'Stopping download…' : view.title;
     $('jobIcon').setAttribute('href',`#i-${view.icon}`);
     const selected=sourceInfo(job.url || '',currentTab);
-    $('jobTitle').textContent=job.title && job.title!=='Getting video details…' ? job.title : selected.title || 'YouTube video';
+    $('jobTitle').textContent=job.title && !['Getting video details…','YouTube video'].includes(job.title) ? job.title : selected.title && selected.title!=='YouTube video' ? selected.title : `YouTube · ${new URL(job.url).searchParams.get('v')}`;
     $('jobTitle').title=$('jobTitle').textContent;$('jobOptions').textContent=optionLabel(job);
     $('percent').textContent=job.status==='downloading' && view.percent!==null ? `${view.percent}%` : '';
     $('progressSection').hidden=!view.active;
@@ -95,18 +129,18 @@ function render(next) {
     $('filename').hidden=job.status!=='complete' || !view.filename;$('filename').textContent=view.filename;$('filename').title=job.filename || '';
     $('jobErrorDetails').hidden=!job.error;$('jobError').textContent=job.error || '';
     $('activeActions').hidden=!view.active;$('finishedActions').hidden=view.active;
-    $('cancel').disabled=cancelling;$('cancel').textContent=cancelling ? 'Stopping…' : 'Cancel download';
-    $('jobPrimaryLabel').textContent=job.status==='complete' ? 'Open download folder' : 'Try download again';
+    $('cancel').disabled=cancelling;$('cancel').textContent=cancelling ? 'Stopping…' : state.queue?.length && !state.queuePaused ? 'Skip current download' : 'Cancel download';
+    $('jobPrimaryLabel').textContent=job.status==='complete' ? 'Open download folder' : state.queuePaused ? 'Queue this download again' : 'Try download again';
     $('jobPrimaryIcon').setAttribute('href',job.status==='complete' ? '#i-folder' : '#i-retry');$('jobPrimary').disabled=!state.helper.ready || submitting;
     $('another').textContent=job.status==='complete' ? 'Download another video →' : 'Edit link or options →';
   }
-  renderHistory(visible);
+  renderQueue();renderHistory(visible);
 }
-function showComposer(item) {
-  if(isActive(state.job))return;
-  dismissedJobId=state.job?.id || '';chrome.storage.session.set({dismissedJobId}).catch(showError);
-  $('url').value=item?.url || '';draftOrigin='manual';if(item)applySettings(item,true);
-  clearError();$('historySection').open=false;updateSource();persistDraft();render(state);$('url').focus();
+function showComposer(item,clear=true) {
+  composing=true;
+  if(!isActive(state.job)){dismissedJobId=state.job?.id || '';chrome.storage.session.set({dismissedJobId}).catch(showError);}
+  if(item || clear)$('url').value=item?.url || '';draftOrigin='manual';if(item)applySettings(item,true);
+  clearError();$('queueNotice').hidden=true;$('historySection').open=false;updateSource();persistDraft();render(state);$('url').focus();
 }
 async function useCurrentTab(silent=false) {
   try {
@@ -116,13 +150,25 @@ async function useCurrentTab(silent=false) {
     $('url').value=source.url;draftOrigin='tab';clearError();updateSource();await persistDraft();
   } catch(error){if(!silent){showError(error);$('url').focus();}}
 }
-async function startDownload(url,options) {
-  if(submitting || isActive(state.job))return;
+async function startDownload(urls,options) {
+  if(submitting)return;
   submitting=true;clearError();render(state);
-  try {await chrome.storage.local.set(options);await send({type:'download',url,...options});$('jobStatus').focus();}
+  try {
+    await chrome.storage.local.set(options);
+    const title=urls.length===1 ? sourceInfo(urls[0],currentTab).title : undefined;
+    const result=await send({type:'enqueue',urls,title,...options});
+    $('queueNotice').textContent=`${result.added} added${result.skipped ? ` · ${result.skipped} already active or queued` : ''}. Downloads run one at a time.`;$('queueNotice').hidden=false;
+    $('queueNotice').classList.toggle('queue-duplicate',!result.added);
+    if(result.added){$('url').value='';draftOrigin='manual';await persistDraft();updateSource();}
+    composing=false;dismissedJobId='';render(state);if(!$('job').hidden)$('jobStatus').focus();
+  }
   catch(error){showError(error);}finally{submitting=false;render(state);}
 }
-$('form').addEventListener('submit',event=>{event.preventDefault();const source=updateSource(true);if(!source.valid){$('url').focus();return;}startDownload(source.url,settings());});
+async function queueAction(message) {
+  if(queueBusy)return;queueBusy=true;renderQueue();clearError();
+  try{await send(message);}catch(error){showError(error);}finally{queueBusy=false;renderQueue();}
+}
+$('form').addEventListener('submit',event=>{event.preventDefault();const source=updateSource(true);if(!source.valid){$('url').focus();return;}startDownload(source.urls,settings());});
 $('url').addEventListener('input',()=>{draftOrigin='manual';clearError();updateSource();persistDraft();});
 $('url').addEventListener('blur',()=>{if($('url').value)updateSource(true);});
 $('clearUrl').addEventListener('click',()=>{$('url').value='';draftOrigin='manual';updateSource();persistDraft();$('url').focus();});
@@ -132,9 +178,13 @@ for(const id of ['quality','speed'])$(id).addEventListener('change',()=>updateSe
 $('connectionBadge').addEventListener('click',()=>{helperExpanded=$('helperPanel').hidden;renderHelper();});
 $('retry').addEventListener('click',async()=>{clearError();try{await send({type:'retry'});}catch(error){showError(error);}});
 $('openFolder').addEventListener('click',()=>send({type:'openFolder'}).catch(showError));
-$('cancel').addEventListener('click',async()=>{if(cancelling)return;cancelling=true;render(state);try{await send({type:'cancel'});}catch(error){cancelling=false;render(state);showError(error);}});
-$('jobPrimary').addEventListener('click',()=>{const job=state.job;if(!job)return;if(job.status==='complete')send({type:'openFolder'}).catch(showError);else startDownload(job.url,downloadOptions(job));});
+$('cancel').addEventListener('click',async()=>{if(cancelling)return;const id=state.job?.id;cancelling=true;render(state);try{await send({type:'cancel',id});}catch(error){cancelling=false;render(state);showError(error);}});
+$('jobPrimary').addEventListener('click',()=>{const job=state.job;if(!job)return;if(job.status==='complete')send({type:'openFolder'}).catch(showError);else startDownload([job.url],downloadOptions(job));});
 $('another').addEventListener('click',()=>showComposer(state.job?.status==='complete' ? undefined : state.job));
+$('addMore').addEventListener('click',()=>showComposer(undefined,false));
+$('backToJob').addEventListener('click',()=>{composing=false;render(state);$('jobStatus').focus();});
+$('pauseQueue').addEventListener('click',()=>queueAction({type:'pauseQueue',paused:!state.queuePaused}));
+$('clearQueue').addEventListener('click',()=>queueAction({type:'clearQueue'}));
 chrome.runtime.onMessage.addListener(message=>{if(message.type==='state')render(message.state);});
 async function init() {
   const [saved,session,tabs]=await Promise.all([chrome.storage.local.get(['mode','quality','speed']),chrome.storage.session.get(['draftUrl','draftOrigin','dismissedJobId']),chrome.tabs.query({active:true,currentWindow:true})]);

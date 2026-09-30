@@ -33,7 +33,7 @@ export function describeJob(job) {
   const percent = status === 'complete' ? 100 : status === 'downloading' && numeric ? Math.round(Math.min(100,Math.max(0,job.percent))) : null;
   const labels = {
     starting:['ON ITS WAY','Preparing download','Getting the video details and finding the right format.',0,'download'],
-    downloading:['ON ITS WAY','Downloading',job.mode === 'audio' ? 'Downloading the best available audio track.' : 'Video and audio can download separately. Progress is for the current stream.',1,'download'],
+    downloading:['ON ITS WAY','Downloading',job.mode === 'audio' ? 'Downloading the best available audio track.' : 'Progress is for the current video or audio stream.',1,'download'],
     processing:['THE FINAL STEP','Finishing your file',job.mode === 'audio' ? 'Converting the audio to MP3. Larger files can take a moment.' : 'Merging the tracks and saving your video. Almost there.',2,'download'],
     complete:['ALL YOURS','Saved to your device','Your file is ready in the download folder.',3,'check'],
     cancelled:['YOU’RE IN CONTROL','Download cancelled','Partial files are kept. Try again to resume where possible.',-1,'close'],

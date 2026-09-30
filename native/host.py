@@ -138,6 +138,8 @@ class Host:
 
     def download(self, identifier, command):
         errors, filename = [], None
+        outcome = {"status": "error", "error": "Download ended unexpectedly."}
+        waited = False
         try:
             Path(self.config["download_dir"]).mkdir(parents=True, exist_ok=True)
             with self.lock:
@@ -175,24 +177,32 @@ class Host:
                     errors.append(line[-1000:])
                     errors = errors[-8:]
             returncode = process.wait()
+            waited = True
             with self.lock:
                 if self.cancelled:
                     return
                 if returncode != 0:
-                    self.event(identifier, status="error", error="\n".join(errors[-4:]) or f"yt-dlp exited with code {returncode}")
+                    outcome = {"status": "error", "error": "\n".join(errors[-4:]) or f"yt-dlp exited with code {returncode}"}
                 elif not filename:
-                    self.event(identifier, status="error", error="No file was saved. The video may be live, unavailable, or filtered out.")
+                    outcome = {"status": "error", "error": "No file was saved. The video may be live, unavailable, or filtered out."}
                 else:
-                    self.event(identifier, status="complete", percent=100, filename=filename)
+                    outcome = {"status": "complete", "percent": 100, "filename": filename}
         except Exception as error:
-            if not self.cancelled:
-                self.event(identifier, status="error", error=str(error)[:2000])
+            outcome = {"status": "error", "error": str(error)[:2000]}
         finally:
             with self.lock:
+                # Even an output/read exception must stop the subprocess before
+                # a terminal event allows the queue to launch the next one.
+                if self.process is not None and not waited:
+                    self.stop_process(self.process)
+                    self.process.wait()
                 if self.cancelled:
-                    self.event(identifier, status="cancelled")
+                    outcome = {"status": "cancelled"}
+                # A terminal event is permission for the extension to send the
+                # next queued item. Release this job before emitting it.
                 self.process = None
                 self.job = None
+                self.event(identifier, **outcome)
 
     def cancel(self, identifier=None):
         with self.lock:
@@ -200,13 +210,17 @@ class Host:
                 return
             self.cancelled = True
             process = self.process
-            if process and process.poll() is None:
-                if os.name == "nt":
-                    subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=CREATE_FLAGS)
-                else:
-                    import signal
-                    os.killpg(process.pid, signal.SIGTERM)
+            if process:
+                self.stop_process(process)
+
+    def stop_process(self, process):
+        if process.poll() is None:
+            if os.name == "nt":
+                subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=CREATE_FLAGS)
+            else:
+                import signal
+                os.killpg(process.pid, signal.SIGTERM)
 
     def dispatch(self, message):
         action = message.get("type")

@@ -1,5 +1,16 @@
 # Validation — 27 September 2026
 
+## Version 1.3.0 queue update — 30 September 2026
+
+- 34 JavaScript tests and 17 Python tests passed (51 total).
+- The service worker owns a FIFO queue, serializes popup requests and native events, and persists a claimed job before dispatch. Duplicate terminal events and stale cancellation clicks cannot start/cancel the next item twice.
+- Automated queue coverage includes bulk validation, duplicate canonical links, different output settings, the 50-item waiting limit, pause/resume, waiting-item removal, clearing without cancelling, failed/cancelled item advancement, disconnection, worker recovery, simultaneous submissions, and failed storage claims.
+- Native helper checks cover releasing a finished/cancelled/failed job before accepting the next, plus stopping and waiting for a subprocess after an output error before signalling completion.
+- Browser checks run the actual popup and service-worker code with a simulated native helper: batch submission, invalid-link positions, adding audio/Standard items during video/Fast transfers, pause after the current item, explicit resume, failure advancement, waiting-item removal, clear waiting, cancel, and disconnect/reconnect recovery. Queue settings and remaining items were inspected after each transition.
+- The active-transfer preview with two waiting items fits within 400 × 600 CSS pixels. Longer queues scroll within the waiting list. No browser console errors or warnings were observed.
+- Updated the installed extension and helper with a backup, verified all nine changed file hashes, and confirmed the actual installed helper's framed native-messaging `hello` response reports ready (yt-dlp 2026.8.19).
+- No new live YouTube download or actual Chrome extension reload is claimed for this release. The browser preview uses sample data; deterministic native tests simulate subprocess output. Existing integration evidence is recorded below.
+
 ## Version 1.2.0 UI update — 30 September 2026
 
 - 21 JavaScript tests passed, including canonical video/title matching, invalid links, progress bounds, ETA formatting, retry settings after progress updates, and interrupted-job history.

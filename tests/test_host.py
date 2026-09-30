@@ -138,6 +138,37 @@ class LifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'already running'):
             self.host.start(JOB)
 
+    def test_terminal_event_releases_job_before_next_download_is_requested(self):
+        for lines, code, cancelled in [(['YTDROP_FILE:"test.mkv"'], 0, False), (['ERROR: unavailable'], 1, False), ([], 0, True)]:
+            with self.subTest(cancelled=cancelled, code=code):
+                self.host.job = JOB['id']
+                self.host.cancelled = cancelled
+                accepted = []
+                def receiver(event):
+                    if event.get('status') in ('complete', 'error', 'cancelled'):
+                        self.assertIsNone(self.host.job)
+                        self.assertIsNone(self.host.process)
+                        with patch.object(host.threading.Thread, 'start'):
+                            self.host.start({**JOB, 'id': 'next-job'})
+                        accepted.append(self.host.job)
+                self.host.emit = receiver
+                self.run_download(lines, code)
+                self.assertEqual(accepted, ['next-job'])
+                self.assertEqual(self.host.job, 'next-job')
+
+    def test_output_error_stops_process_before_queue_handoff(self):
+        class BrokenOutput:
+            def __iter__(self):
+                raise OSError('Output pipe failed')
+        process = FakeProcess([])
+        process.stdout = BrokenOutput()
+        order = []
+        process.wait = lambda: order.append('wait') or 1
+        self.host.emit = lambda event: order.append(event.get('status'))
+        with patch.object(host.subprocess, 'Popen', return_value=process), patch.object(Path, 'mkdir'), patch.object(self.host, 'stop_process', side_effect=lambda _: order.append('stop')):
+            self.host.download(JOB['id'], ['fake'])
+        self.assertEqual(order, ['stop', 'wait', 'error'])
+
 
 if __name__ == '__main__':
     unittest.main()
