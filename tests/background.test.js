@@ -27,6 +27,19 @@ async function worker(saved={}) {
 }
 const enqueue=(w,urls,options=video)=>w.request({type:'enqueue',urls,...options});
 
+test('worker reports its running protocol and rejects incompatible mutations',async()=>{
+  const w=await worker();
+  assert.equal((await w.request({type:'getState'})).protocol,1);
+  const result=await w.request({type:'enqueue',protocol:999,urls:[A],...video});
+  assert.equal(result.ok,false);assert.match(result.error,/reload/i);
+  assert.equal(w.downloads().length,0);assert.equal((await w.read()).queue.length,0);
+});
+
+test('unknown actions fail rather than returning a misleading success',async()=>{
+  const w=await worker();const result=await w.request({type:'unsupported'});
+  assert.equal(result.ok,false);assert.match(result.error,/Unknown extension action/);
+});
+
 test('FIFO queue runs exactly one item, waits through processing, and advances after every terminal outcome',async()=>{
   const w=await worker();
   let r=await enqueue(w,[A,B,C]);

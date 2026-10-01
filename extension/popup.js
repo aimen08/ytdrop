@@ -1,20 +1,27 @@
 import { sourceInfo, downloadOptions, optionLabel, etaLabel, describeJob, isActive } from './presentation.js';
 import { parseLinks } from './queue.js';
+import { requestWorker } from './worker-client.js';
 
 const $ = id => document.getElementById(id);
 let state = {helper:{ready:false,message:'Connecting to local helper…'},job:null,history:[],queue:[],queuePaused:false};
 let currentTab = {}, dismissedJobId = '', helperExpanded = null, submitting = false, cancelling = false, initialized = false;
 let historyKey = '', lastJobId = '', draftOrigin = 'tab';
 let composing = false, queueBusy = false, queueRenderKey = '';
+let workerReady = false, reloadRequired = false;
 const settings = () => ({mode:document.querySelector('input[name="mode"]:checked').value,quality:$('quality').value,speed:$('speed').value});
 
 function showError(error) {$('error').textContent=error.message || String(error);$('error').hidden=false;}
-function clearError() {$('error').hidden=true;}
+function clearError() {if(!reloadRequired)$('error').hidden=true;}
 async function send(message) {
-  const result=await chrome.runtime.sendMessage(message);
-  if(result?.state)render(result.state);
-  if(!result?.ok)throw new Error(result?.error || 'Couldn’t reach the extension. Close and reopen this panel.');
-  return result;
+  try {
+    const result=await requestWorker(message,request=>chrome.runtime.sendMessage(request));
+    workerReady=true;reloadRequired=false;render(result.state);return result;
+  } catch(error) {
+    if(error.code==='WORKER_UPDATE_REQUIRED') {
+      workerReady=false;reloadRequired=true;$('queueNotice').hidden=true;render(state);
+    }
+    throw error;
+  }
 }
 function persistDraft() {
   return chrome.storage.session.set({draftUrl:$('url').value,draftOrigin}).catch(showError);
@@ -34,10 +41,10 @@ function updateSource(showInvalid=false) {
 function updateDownloadButton() {
   let count=1;try{count=parseLinks($('url').value).length;}catch{}
   const waiting=isActive(state.job) || state.queue?.length || state.queuePaused;
-  $('download').disabled=!initialized || !state.helper.ready || submitting;
-  $('downloadLabel').textContent=submitting ? 'Adding downloads…' : !state.helper.ready && initialized ? 'Connect helper to download' : waiting ? `Add to queue${count>1 ? ` (${count})` : ''}` : count>1 ? `Queue ${count} downloads` : `Download ${settings().mode === 'audio' ? 'MP3 audio' : 'video'}`;
-  $('downloadHint').textContent=!state.helper.ready && initialized ? 'Use the connection badge above for setup and help.' : 'Saved locally. No account needed.';
-  $('downloadHint').hidden=state.helper.ready;
+  $('download').disabled=!initialized || !workerReady || !state.helper.ready || submitting;
+  $('downloadLabel').textContent=reloadRequired ? 'Reload extension to download' : submitting ? 'Adding downloads…' : !state.helper.ready && initialized ? 'Connect helper to download' : waiting ? `Add to queue${count>1 ? ` (${count})` : ''}` : count>1 ? `Queue ${count} downloads` : `Download ${settings().mode === 'audio' ? 'MP3 audio' : 'video'}`;
+  $('downloadHint').textContent=reloadRequired ? 'chrome://extensions → YT Drop → Reload' : !state.helper.ready && initialized ? 'Use the connection badge above for setup and help.' : 'Saved locally. No account needed.';
+  $('downloadHint').hidden=state.helper.ready && !reloadRequired;
 }
 function updateSettings(persist=false) {
   const o=settings(), audio=o.mode==='audio';
@@ -136,7 +143,7 @@ function render(next) {
     $('cancel').textContent=cancelling ? 'Stopping…' : skip ? 'Skip current' : 'Cancel';
     $('cancel').setAttribute('aria-label',cancelling ? 'Stopping download' : skip ? 'Skip current download' : 'Cancel download');
     $('jobPrimaryLabel').textContent=job.status==='complete' ? 'Open download folder' : state.queuePaused ? 'Queue this download again' : 'Try download again';
-    $('jobPrimaryIcon').setAttribute('href',job.status==='complete' ? '#i-folder' : '#i-retry');$('jobPrimary').disabled=!state.helper.ready || submitting;
+    $('jobPrimaryIcon').setAttribute('href',job.status==='complete' ? '#i-folder' : '#i-retry');$('jobPrimary').disabled=!state.helper.ready || submitting || (job.status!=='complete' && !workerReady);
     $('another').textContent=job.status==='complete' ? 'Download another video →' : 'Edit link or options →';
   }
   renderQueue();renderHistory(visible);
@@ -156,8 +163,8 @@ async function useCurrentTab(silent=false) {
   } catch(error){if(!silent){showError(error);$('url').focus();}}
 }
 async function startDownload(urls,options) {
-  if(submitting)return;
-  submitting=true;clearError();render(state);
+  if(submitting || reloadRequired)return;
+  submitting=true;clearError();$('queueNotice').hidden=true;render(state);
   try {
     await chrome.storage.local.set(options);
     const title=urls.length===1 ? sourceInfo(urls[0],currentTab).title : undefined;
@@ -198,4 +205,4 @@ async function init() {
   else {const source=sourceInfo(currentTab.url || '',currentTab);$('url').value=source.valid ? source.url : session.draftUrl || '';draftOrigin='tab';}
   document.querySelector('.help-link').title=`Setup and help · YT Drop ${chrome.runtime.getManifest().version}`;initialized=true;updateSource();await send({type:'getState'});
 }
-init().catch(error=>{initialized=true;state.helper={ready:false,message:'Extension setup could not be loaded. Close this panel and try again.'};render(state);showError(error);});
+init().catch(error=>{initialized=true;if(!reloadRequired)state.helper={ready:false,message:'Extension setup could not be loaded. Close this panel and try again.'};render(state);showError(error);});

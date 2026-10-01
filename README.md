@@ -21,6 +21,12 @@ A Chrome Manifest V3 extension for downloading individual YouTube videos and Sho
 
 *UI preview with sample data.*
 
+## New in 1.4.1: reliable download acknowledgement
+
+Fixes the misleading **“undefined added”** message when updated popup files communicate with an older background worker still running in Chrome. The popup now checks the worker's protocol before submitting downloads and validates the added/skipped counts before reporting success. An incompatible worker produces explicit reload instructions and preserves your pasted links. Requests with missing acknowledgements are never automatically retried, preventing accidental duplicate downloads.
+
+After updating, wait for active downloads to finish, open `chrome://extensions`, find **YT Drop**, and click its **Reload** button. Reopen the extension and try your link again. Reopening just the popup does not necessarily restart the background worker.
+
 ## New in 1.4.0: a smaller, clearer popup
 
 The charcoal and violet interface is now 360 pixels wide. Video/MP3 and quality controls share one row; extra settings live under **Options**. Progress, speed, ETA, and cancellation fit in a compact card. **Up next** puts the waiting count, **Pause / Resume**, and **Clear** together, with a scrollable list for longer queues. The download-folder shortcut stays visible below the active download.
@@ -118,6 +124,7 @@ python tests/benchmark_fragments.py --output-dir "$env:TEMP\ytdrop-benchmark"
 Get the latest repository files (`git pull` or download a fresh ZIP), close Chrome, and rerun `install.ps1` to refresh the helper, extension files, and yt-dlp. Reopen Chrome; reload the unpacked extension if needed. Updates install from PyPI; yt-dlp is deliberately not pinned because YouTube changes regularly. When upgrading from 1.0.0, update both the extension and the helper for Fast mode to take effect.
 
 - **“Manifest file is missing or unreadable”:** you selected the repository root. Use **Load unpacked** again and choose its `extension` subfolder, or the installed extension folder printed by setup. That folder must contain `manifest.json` directly.
+- **“undefined added” / “popup and background worker are out of sync”:** Chrome may be running an older worker alongside updated popup files. After downloads finish, reload YT Drop at `chrome://extensions`, then reopen its popup. If it continues, rerun the latest installer with Chrome closed and confirm that the loaded extension folder matches the path printed by setup.
 - **Helper not found:** run setup, ensure you loaded the installed extension folder, and click Retry. If its ID differs from the ID printed by setup, restore the original manifest including its `key` field.
 - **Missing FFmpeg/runtime:** rerun setup after installing the dependency. Setup records absolute executable paths so Chrome does not depend on a refreshed PATH.
 - **Sign-in / bot verification / regional restrictions:** this build does not import browser cookies, authenticate, or bypass access restrictions. Some videos will be unavailable. The actual yt-dlp error appears in the popup.

@@ -1,5 +1,14 @@
 # Validation — 27 September 2026
 
+## Version 1.4.1 worker compatibility fix — 1 October 2026
+
+- All 43 JavaScript and 17 Python tests passed (60 total).
+- Source inspection of the former 1.2 worker confirmed that unsupported `enqueue` requests returned `ok: true` without added/skipped counts. New popup files talking to that worker reproduce the reported “undefined added” failure. Installed 1.4.0 files matched the repository before this patch; the actual running Chrome worker could not be inspected.
+- Added a versioned worker protocol, a read-only handshake before queue mutation, and strict acknowledgement validation. No automatic retry or legacy download fallback occurs after an uncertain acknowledgement.
+- Regression coverage includes old-worker responses, incomplete acknowledgements, invalid counts, duplicate-only batches, incompatible protocols, transport errors, and refusal of unknown actions. Existing queue and native-helper tests remain green.
+- In the browser preview, a simulated outdated worker caused clear reload guidance, disabled the submit button, retained the pasted URL, hid the success notice, and emitted no native download request.
+- Actual Chrome inspection was stopped by the desktop tool because it could not verify the current browser URL. No actual Chrome reload or new live YouTube download is claimed; the installed extension still requires a reload to activate this patch.
+
 ## Version 1.4.0 compact UI — 30 September 2026
 
 - All 34 JavaScript and 17 Python tests passed (51 total). Download coordination and the native helper are unchanged.

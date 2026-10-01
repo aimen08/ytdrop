@@ -8,7 +8,7 @@ const storage=area=>({
 });
 const tab={url:'https://www.youtube.com/watch?v=BaW_jenozKc',title:'A slower morning — a little film about everyday life - YouTube'};
 const listeners=[];
-let port, nativeJob=null, offline=false;
+let port, nativeJob=null, offline=false, outdated=false;
 const panel=document.createElement('aside');panel.style.cssText='position:fixed;left:424px;top:24px;width:260px;font:13px/1.5 Segoe UI,sans-serif;color:#dae4d4;padding:20px;background:#252d22;border-radius:12px';
 const heading=document.createElement('h2');heading.textContent='Queue preview';panel.append(heading);
 const note=document.createElement('p');note.textContent='Sample data · no downloads. Runs the real queue service worker with a simulated native helper.';note.style.margin='10px 0 16px';panel.append(note);
@@ -22,6 +22,7 @@ const transition=(status,extra={})=>{
 const actions={
   'Reset preview':()=>{localStorage.removeItem(prefix+'prefs');sessionStorage.removeItem(prefix+'prefs');location.reload();},
   'No YouTube tab':()=>{tab.url='https://example.com';tab.title='Example';},
+  'Simulate outdated worker':()=>{outdated=true;},
   'Simulate progress':()=>transition('downloading',{percent:42,speed:'8.4 MB/s',eta:'72s left'}),
   'Simulate finishing':()=>transition('processing'),
   'Simulate complete':()=>transition('complete',{percent:100,filename:'C:\\Users\\You\\Downloads\\YT Drop\\Sample video.mkv'}),
@@ -33,9 +34,10 @@ for(const [label,action] of Object.entries(actions)){const b=document.createElem
 panel.append(log);document.body.append(panel);
 globalThis.chrome={
   storage:{session:storage(sessionStorage),local:storage(localStorage)},tabs:{query:async()=>[{...tab}]},action:{setBadgeText(){},setBadgeBackgroundColor(){}},
-  runtime:{id:'preview-extension',getManifest:()=>({version:'1.4.0'}),lastError:null,onMessage:{addListener:fn=>listeners.push(fn)},
+  runtime:{id:'preview-extension',getManifest:()=>({version:'1.4.1'}),lastError:null,onMessage:{addListener:fn=>listeners.push(fn)},
     sendMessage:message=>new Promise(resolve=>{
       if(message.type==='state'){listeners.forEach(fn=>fn(structuredClone(message),{id:'preview-extension'},()=>{}));resolve();return;}
+      if(outdated){resolve({ok:true,state:{helper:{ready:true},job:null,history:[]}});return;}
       let pending=false;
       for(const fn of listeners)if(fn(message,{id:'preview-extension'},resolve)===true)pending=true;
       if(!pending)resolve();

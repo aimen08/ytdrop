@@ -3,7 +3,7 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const extension=new URL('../extension/',import.meta.url);
-const allowed=new Set(['popup.html','popup.css','popup.js','presentation.js','url.js','setup.html','background.js','queue.js']);
+const allowed=new Set(['popup.html','popup.css','popup.js','presentation.js','url.js','setup.html','background.js','queue.js','worker-client.js']);
 const mime={html:'text/html',css:'text/css',js:'text/javascript'};
 createServer(async(req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname.slice(1) || 'popup.html';

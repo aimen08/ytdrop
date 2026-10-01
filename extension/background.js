@@ -1,4 +1,5 @@
 import { normalizeLinks, validateOptions, queueKey, QUEUE_LIMIT } from './queue.js';
+import { WORKER_PROTOCOL } from './worker-client.js';
 
 const HOST = 'com.ytdrop.downloader';
 const TERMINAL = new Set(['complete', 'error', 'cancelled']);
@@ -100,6 +101,7 @@ function connect() {
 chrome.runtime.onMessage.addListener((message,sender,respond) => {
   if (sender.id !== chrome.runtime.id || message.type === 'state') return false;
   schedule(async () => {
+    if (message.protocol !== undefined && message.protocol !== WORKER_PROTOCOL) throw new Error('YT Drop needs a reload. After downloads finish, reload it at chrome://extensions.');
     let result = {};
     if (message.type === 'getState' || message.type === 'retry') {
       if (message.type === 'retry' && port) port.postMessage({type:'hello'});
@@ -139,7 +141,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond) => {
     } else if (message.type === 'openFolder') {
       port?.postMessage({type:'openFolder'});
     } else throw new Error('Unknown extension action.');
-    return {ok:true,state:structuredClone(state),...result};
+    return {ok:true,protocol:WORKER_PROTOCOL,state:structuredClone(state),...result};
   }).then(respond,error => respond({ok:false,error:error.message,state:structuredClone(state)}));
   return true;
 });
